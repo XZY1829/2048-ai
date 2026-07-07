@@ -1,0 +1,40 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "CMake: Configure",
+            "type": "shell",
+            "command": "C:\\msys64\\ucrt64\\bin\\cmake.exe",
+            "args": [
+                "-S", "${workspaceFolder}",
+                "-B", "${workspaceFolder}/build",
+                "-G", "Ninja",
+                "-DCMAKE_MAKE_PROGRAM=C:\\msys64\\ucrt64\\bin\\ninja.exe",
+                "-DCMAKE_C_COMPILER=C:\\msys64\\ucrt64\\bin\\gcc.exe",
+                "-DCMAKE_CXX_COMPILER=C:\\msys64\\ucrt64\\bin\\g++.exe",
+                "-DCMAKE_BUILD_TYPE=Release"
+            ],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "CMake: Build",
+            "type": "shell",
+            "command": "C:\\msys64\\ucrt64\\bin\\cmake.exe",
+            "args": ["--build", "${workspaceFolder}/build"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "dependsOn": "CMake: Configure"
+        },
+        {
+            "label": "Run Game",
+            "type": "shell",
+            "command": "${workspaceFolder}/build/game2048.exe",
+            "group": "test",
+            "dependsOn": "CMake: Build"
+        }
+    ]
+}
