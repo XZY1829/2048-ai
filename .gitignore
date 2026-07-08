@@ -1,0 +1,17 @@
+# 构建产物
+build/
+build-web/
+deploy/
+
+# IDE
+.vscode/
+.clangd
+
+# Understand Anything
+.understand-anything/
+
+# Codegraph
+.codegraph/
+
+# Emscripten 资源（可从系统字体复制）
+assets/font.ttf

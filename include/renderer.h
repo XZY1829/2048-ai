@@ -133,6 +133,7 @@ public:
     void start_spawn_anim(int row, int col, int exponent);
     bool animating() const;
     void update_anims(float dt);
+    void check_resize(int new_w, int new_h);
 
     // UI 交互
     bool is_new_game_clicked(int mx, int my) const;

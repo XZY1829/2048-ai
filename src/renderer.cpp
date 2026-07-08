@@ -50,20 +50,40 @@ bool Renderer::init(const char* title, int width, int height) {
     win_w_ = width;
     win_h_ = height;
 
-    window_ = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                               width, height, SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI);
-    if (!window_) return false;
+#ifdef __EMSCRIPTEN__
+    Uint32 win_flags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
+#else
+    Uint32 win_flags = SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI;
+#endif
 
+    window_ = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                               width, height, win_flags);
+    if (!window_) {
+        fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+        return false;
+    }
+
+#ifdef __EMSCRIPTEN__
+    renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED);
+#else
     renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (!renderer_) return false;
+#endif
+    if (!renderer_) {
+        fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
+        return false;
+    }
 
     SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
 
-    // 加载字体（使用 Windows 自带的 Segoe UI）
+    // 加载字体
     const char* font_paths[] = {
+#ifdef __EMSCRIPTEN__
+        "/assets/font.ttf",
+#else
         "C:/Windows/Fonts/segoeui.ttf",
         "C:/Windows/Fonts/arial.ttf",
         "C:/Windows/Fonts/msyh.ttc",
+#endif
     };
     for (auto path : font_paths) {
         font_big_ = TTF_OpenFont(path, 40);
@@ -99,29 +119,38 @@ void Renderer::shutdown() {
 // ============================================================
 
 void Renderer::calc_layout() {
-    int header_h = 120;
-    int toolbar_h = 50;
-    int margin = 16;
-    board_size_ = std::min(win_w_ - margin * 2, win_h_ - header_h - toolbar_h - margin * 3);
+    int margin = std::max(8, win_w_ / 30);
+
+    // Header 高度：根据窗口大小自适应
+    // Row1: title + scores, Row2: New Game button
+    int score_box_h = std::max(40, win_h_ / 16);
+    int header_h = score_box_h + 50 + margin;
+
+    int toolbar_h = 44;
+    board_size_ = std::min(win_w_ - margin * 2, win_h_ - header_h - toolbar_h - margin * 2);
     board_x_ = (win_w_ - board_size_) / 2;
-    board_y_ = header_h + margin;
-    cell_gap_ = board_size_ / 50;
+    board_y_ = header_h;
+    cell_gap_ = std::max(4, board_size_ / 50);
     cell_size_ = (board_size_ - cell_gap_ * 5) / 4;
 
-    // Header 按钮
-    new_game_btn_ = {win_w_ - 130 - margin, 60, 130, 40};
-    continue_btn_ = {(win_w_ - 160) / 2, (win_h_) / 2 + 20, 160, 45};
+    // New Game 按钮：右对齐，紧贴在分数框下方
+    int btn_w = std::max(80, board_size_ / 4);
+    new_game_btn_ = {board_x_ + board_size_ - btn_w, score_box_h + 18, btn_w, 32};
 
-    // 工具栏按钮（棋盘下方）
-    int toolbar_y = board_y_ + board_size_ + 12;
-    int btn_h = 36;
-    int btn_gap = 8;
+    // Continue 按钮（胜利弹窗）
+    continue_btn_ = {(win_w_ - 160) / 2, win_h_ / 2 + 20, 160, 45};
 
-    // 从左到右：Undo | AI Toggle | Speed- | Speed+
-    undo_btn_       = {board_x_, toolbar_y, 80, btn_h};
-    ai_toggle_btn_  = {board_x_ + 88, toolbar_y, 100, btn_h};
-    speed_down_btn_ = {board_x_ + 196, toolbar_y, 50, btn_h};
-    speed_up_btn_   = {board_x_ + 254, toolbar_y, 50, btn_h};
+    // 底部工具栏按钮（均匀分布在棋盘宽度内）
+    int toolbar_y = board_y_ + board_size_ + 8;
+    int btn_h = 34;
+    int total_btn_w = board_size_;
+    int btn_unit = total_btn_w / 5;  // 5 份：Undo(1) AI(1.3) -(0.7) +(0.7) label(1.3)
+
+    undo_btn_       = {board_x_, toolbar_y, btn_unit, btn_h};
+    ai_toggle_btn_  = {board_x_ + btn_unit + 4, toolbar_y, (int)(btn_unit * 1.3), btn_h};
+    int speed_x     = ai_toggle_btn_.x + ai_toggle_btn_.w + 4;
+    speed_down_btn_ = {speed_x, toolbar_y, (int)(btn_unit * 0.7), btn_h};
+    speed_up_btn_   = {speed_x + (int)(btn_unit * 0.7) + 4, toolbar_y, (int)(btn_unit * 0.7), btn_h};
 }
 
 SDL_Rect Renderer::cell_rect(int row, int col) const {
@@ -205,29 +234,36 @@ void Renderer::draw_tile(int row, int col, int exponent, float scale, float alph
 // ============================================================
 
 void Renderer::draw_header(int score, int best_score) {
-    int margin = 16;
+    int margin = std::max(8, win_w_ / 30);
 
-    // 标题 "2048"
-    SDL_Rect title_area = {margin, 15, 120, 50};
+    // 标题 "2048" — 左对齐
+    int title_size = std::min(60, win_w_ / 7);
+    SDL_Rect title_area = {board_x_, 8, title_size * 2, title_size};
     draw_text_centered("2048", title_area, font_big_, UIColor::header_text);
 
-    // 分数框
-    SDL_Rect score_box = {win_w_ - 280 - margin, 10, 130, 55};
+    // 分数框 — 右对齐，两个并排
+    int box_w = std::max(70, board_size_ / 4);
+    int box_h = std::max(40, win_h_ / 16);
+    int box_gap = 6;
+
+    SDL_Rect best_box = {board_x_ + board_size_ - box_w, 8, box_w, box_h};
+    SDL_Rect score_box = {best_box.x - box_w - box_gap, 8, box_w, box_h};
+
+    // SCORE
     draw_rounded_rect(score_box, 4, UIColor::score_bg);
-    SDL_Rect score_label = {score_box.x, score_box.y + 5, score_box.w, 18};
+    SDL_Rect score_label = {score_box.x, score_box.y + 4, score_box.w, 16};
     draw_text_centered("SCORE", score_label, font_sml_, {238, 228, 218, 255});
     char buf[32];
     snprintf(buf, sizeof(buf), "%d", score);
-    SDL_Rect score_val = {score_box.x, score_box.y + 22, score_box.w, 28};
+    SDL_Rect score_val = {score_box.x, score_box.y + 18, score_box.w, box_h - 20};
     draw_text_centered(buf, score_val, font_med_, UIColor::score_text);
 
-    // 最高分框
-    SDL_Rect best_box = {win_w_ - 140 - margin, 10, 130, 55};
+    // BEST
     draw_rounded_rect(best_box, 4, UIColor::score_bg);
-    SDL_Rect best_label = {best_box.x, best_box.y + 5, best_box.w, 18};
+    SDL_Rect best_label = {best_box.x, best_box.y + 4, best_box.w, 16};
     draw_text_centered("BEST", best_label, font_sml_, {238, 228, 218, 255});
     snprintf(buf, sizeof(buf), "%d", best_score);
-    SDL_Rect best_val = {best_box.x, best_box.y + 22, best_box.w, 28};
+    SDL_Rect best_val = {best_box.x, best_box.y + 18, best_box.w, box_h - 20};
     draw_text_centered(buf, best_val, font_med_, UIColor::score_text);
 
     // New Game 按钮
@@ -597,4 +633,13 @@ bool Renderer::is_speed_down_clicked(int mx, int my) const {
 bool Renderer::is_speed_up_clicked(int mx, int my) const {
     return mx >= speed_up_btn_.x && mx <= speed_up_btn_.x + speed_up_btn_.w &&
            my >= speed_up_btn_.y && my <= speed_up_btn_.y + speed_up_btn_.h;
+}
+
+void Renderer::check_resize(int new_w, int new_h) {
+    if (new_w != win_w_ || new_h != win_h_) {
+        win_w_ = new_w;
+        win_h_ = new_h;
+        SDL_SetWindowSize(window_, new_w, new_h);
+        calc_layout();
+    }
 }

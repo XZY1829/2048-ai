@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>2048 AI</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      touch-action: none;
+      overscroll-behavior: none;
+      background: #faf8ef;
+    }
+    #canvas {
+      display: block;
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    #loading {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+      font: bold 24px -apple-system, sans-serif;
+      color: #776e65;
+      background: #faf8ef;
+      z-index: 10;
+    }
+    #loading .spinner {
+      width: 40px; height: 40px;
+      border: 4px solid #bbada0;
+      border-top-color: #776e65;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <div class="spinner"></div>
+    <span>Loading...</span>
+  </div>
+  <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="1"></canvas>
+  <script>
+    // Pre-size the canvas to window dimensions
+    var c = document.getElementById('canvas');
+    c.width = window.innerWidth;
+    c.height = window.innerHeight;
+
+    var Module = {
+      canvas: c,
+      onRuntimeInitialized: function() {
+        document.getElementById('loading').style.display = 'none';
+        c.focus();
+      },
+      print: function(text) { console.log(text); },
+      printErr: function(text) { console.error(text); }
+    };
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>

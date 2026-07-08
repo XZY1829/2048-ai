@@ -1,12 +1,12 @@
 {
   "version": "1.0.0",
   "project": {
-    "name": "2048-cpp",
-    "languages": ["C++"],
-    "frameworks": ["CMake", "MSYS2/GCC"],
-    "description": "纯 C++ 实现的 2048 游戏 + Expectimax AI 冲分引擎。采用 64 位 Bitboard 棋盘编码 + 65536 项预计算查找表实现极致性能，AI 通过 Expectimax 博弈树搜索自动冲分。",
-    "analyzedAt": "2026-07-07T15:10:00+08:00",
-    "gitCommitHash": "82a7f7d950457fe6b709ea876a6fd0e728bb89c2"
+    "name": "2048-AI",
+    "languages": ["C++", "CMake", "HTML"],
+    "frameworks": ["SDL2", "SDL2_ttf", "Emscripten"],
+    "description": "基于 Bitboard + Expectimax AI 的 2048 游戏，支持桌面和移动端 WebAssembly 部署",
+    "analyzedAt": "2026-07-08T10:20:00+08:00",
+    "gitCommitHash": "016422654384883d65c9dc1672a764bdf54aed0c"
   },
   "nodes": [
     {
@@ -14,437 +14,419 @@
       "type": "file",
       "name": "main.cpp",
       "filePath": "src/main.cpp",
-      "summary": "程序入口。包含查找表正确性验证、棋盘操作单元测试、完整移动逻辑测试和 AI 基准测试（多局自动对弈统计）。",
-      "tags": ["entry-point", "test", "benchmark", "game-loop"],
-      "complexity": "moderate",
-      "languageNotes": "使用 C++17 结构化绑定和 std::chrono 高精度计时。main() 先运行三组单元测试，全部通过后执行 AI 自动对局基准。"
-    },
-    {
-      "id": "file:src/ai.cpp",
-      "type": "file",
-      "name": "ai.cpp",
-      "filePath": "src/ai.cpp",
-      "summary": "Expectimax AI 引擎实现。包含自适应搜索深度、CHANCE 节点（随机方块期望值）和 MAX 节点（玩家最优选择）的递归搜索，以及 Transposition Table 缓存和概率裁剪优化。",
-      "tags": ["ai", "expectimax", "search", "optimization", "core"],
-      "complexity": "complex",
-      "languageNotes": "递归搜索函数之间形成 CHANCE↔MAX 交替调用。score_chance_node 展开所有空格的 90%/10% 放置概率，score_move_node 对四方向取最大值。"
-    },
-    {
-      "id": "file:src/tables.cpp",
-      "type": "file",
-      "name": "tables.cpp",
-      "filePath": "src/tables.cpp",
-      "summary": "预计算查找表初始化实现。在程序启动时一次性填充所有 65536 种行状态的左移结果、右移结果、合并得分和启发式评估值。包含行移动模拟算法（压缩→合并→编码）和五维启发式评估函数。",
-      "tags": ["lookup-table", "precomputation", "heuristic", "initialization", "core"],
-      "complexity": "complex",
-      "languageNotes": "init_tables() 分两遍完成：Pass 1 填充 move_left_table/score_table/heur_table，Pass 2 利用 reverse_row 推导 move_right_table。compute_row_heuristic 综合空格奖励、单调性、平滑度、合并潜力和位置权重五个特征。"
-    },
-    {
-      "id": "file:include/ai.h",
-      "type": "file",
-      "name": "ai.h",
-      "filePath": "include/ai.h",
-      "summary": "Expectimax AI 引擎头文件。定义 AIConfig（搜索参数）、AIStats（搜索统计）、CacheEntry（Transposition Table 条目）和 AIEngine 类接口。",
-      "tags": ["ai", "interface", "header", "expectimax"],
-      "complexity": "simple"
+      "summary": "程序入口点。初始化 Game 对象并启动主循环，Windows 平台额外设置 UTF-8 控制台编码。",
+      "tags": ["entry-point", "bootstrap"],
+      "complexity": "simple",
+      "sizeLines": 33
     },
     {
       "id": "file:include/board.h",
       "type": "file",
       "name": "board.h",
       "filePath": "include/board.h",
-      "summary": "Bitboard 棋盘核心表示。将 4×4 棋盘编码为 64 位整数（每格 4 bit 存 log2 值），提供 get/set cell、行列提取、转置、空格计数、最大 tile、随机放置新方块和朴素 Game Over 检测等内联操作。",
-      "tags": ["bitboard", "core", "data-structure", "board-ops", "header"],
+      "summary": "2048 Bitboard 棋盘表示核心。将 4×4 棋盘编码为 64-bit 整数，每格 4-bit 存储 tile 的 log2 值。提供 get/set cell、转置、空格计数、spawn tile、Game Over 检测等基础操作。",
+      "tags": ["bitboard", "data-structure", "core"],
       "complexity": "complex",
-      "languageNotes": "所有函数均为 inline，board_t = uint64_t，row_t = uint16_t。位布局：row0 占 bits[63:48]，row3 占 bits[15:0]，每行内高 nybble 对应左列。"
+      "sizeLines": 300
     },
     {
       "id": "file:include/tables.h",
       "type": "file",
       "name": "tables.h",
       "filePath": "include/tables.h",
-      "summary": "预计算查找表头文件。声明四张全局表（move_left/right、score、heuristic），并提供基于查表的高性能内联函数：四方向棋盘移动、统一移动接口、合并得分、Game Over 检测和启发式整板评估。",
-      "tags": ["lookup-table", "move", "evaluation", "performance", "header", "core"],
+      "summary": "预计算查找表声明及基于查表的棋盘移动操作。声明 move_left/right_table、score_table、heur_table，提供 O(1) 的 board_move_*、execute_move、get_move_score、is_game_over、evaluate_board 等 inline 函数。",
+      "tags": ["lookup-table", "performance", "core"],
       "complexity": "complex",
-      "languageNotes": "board_move_up/down 通过 transpose→行操作→transpose 复用行查表。evaluate_board 对 4 行+4 列查 heur_table 求和实现 O(1) 评估。"
+      "sizeLines": 200
+    },
+    {
+      "id": "file:src/tables.cpp",
+      "type": "file",
+      "name": "tables.cpp",
+      "filePath": "src/tables.cpp",
+      "summary": "查找表初始化实现。init_tables() 遍历 65536 种行状态，预计算左移结果、合并得分和启发式评估值；第二遍用翻转技巧填充右移表。启发式函数包含空格奖励、单调性、平滑度、合并潜力和位置权重五个特征。",
+      "tags": ["initialization", "heuristic", "precomputation"],
+      "complexity": "complex",
+      "sizeLines": 266
+    },
+    {
+      "id": "file:include/ai.h",
+      "type": "file",
+      "name": "ai.h",
+      "filePath": "include/ai.h",
+      "summary": "Expectimax AI 引擎声明。定义 AIConfig（搜索参数）、AIStats（统计）和 AIEngine 类，支持 Transposition Table 缓存和概率裁剪。",
+      "tags": ["ai", "expectimax", "search"],
+      "complexity": "moderate",
+      "sizeLines": 46
+    },
+    {
+      "id": "file:src/ai.cpp",
+      "type": "file",
+      "name": "ai.cpp",
+      "filePath": "src/ai.cpp",
+      "summary": "Expectimax 搜索实现。find_best_move 尝试 4 方向取最优；score_chance_node 展开随机放置的期望；score_move_node 是 MAX 节点选最优方向。包含自适应深度控制和 Transposition Table 缓存。",
+      "tags": ["ai", "expectimax", "game-tree-search"],
+      "complexity": "complex",
+      "sizeLines": 223
+    },
+    {
+      "id": "file:include/renderer.h",
+      "type": "file",
+      "name": "renderer.h",
+      "filePath": "include/renderer.h",
+      "summary": "SDL2 渲染器声明。定义颜色方案、动画数据结构（TileAnim/MergeAnim/SpawnAnim）、GameState 枚举和 Renderer 类。负责窗口管理、棋盘绘制、分数显示、动画和 UI 按钮交互。",
+      "tags": ["renderer", "sdl2", "ui", "animation"],
+      "complexity": "complex",
+      "sizeLines": 183
+    },
+    {
+      "id": "file:src/renderer.cpp",
+      "type": "file",
+      "name": "renderer.cpp",
+      "filePath": "src/renderer.cpp",
+      "summary": "SDL2 渲染完整实现。包含缓动函数（ease_out_cubic/back）、字体加载、响应式布局计算、方块绘制、header/toolbar/overlay 绘制、以及完整的滑动-合并-生成三阶段动画系统。",
+      "tags": ["renderer", "sdl2", "animation", "easing", "layout"],
+      "complexity": "complex",
+      "sizeLines": 613
+    },
+    {
+      "id": "file:include/game.h",
+      "type": "file",
+      "name": "game.h",
+      "filePath": "include/game.h",
+      "summary": "Game 控制器声明。整合 Renderer、AIEngine，管理棋盘状态、分数、撤销历史、AI 接管和触控输入。提供 tick() 方法支持 Emscripten 主循环。",
+      "tags": ["controller", "game-loop", "undo", "touch"],
+      "complexity": "moderate",
+      "sizeLines": 66
+    },
+    {
+      "id": "file:src/game.cpp",
+      "type": "file",
+      "name": "game.cpp",
+      "filePath": "src/game.cpp",
+      "summary": "Game 主循环实现。跨平台支持（Native while 循环 vs Emscripten set_main_loop）。处理键盘/触控/鼠标输入，执行移动、撤销、AI 步进，管理 localStorage 持久化最高分。",
+      "tags": ["game-loop", "input", "cross-platform", "emscripten"],
+      "complexity": "complex",
+      "sizeLines": 277
     },
     {
       "id": "config:CMakeLists.txt",
       "type": "config",
       "name": "CMakeLists.txt",
       "filePath": "CMakeLists.txt",
-      "summary": "CMake 构建配置。项目名 Game2048，C++17 标准，开启 compile_commands.json 输出，Release 模式 -O3 优化，静态链接避免 DLL 依赖。",
-      "tags": ["build", "cmake", "configuration"]
+      "summary": "CMake 构建配置。条件编译支持 Native（SDL2+SDL2_ttf）和 Emscripten（WASM + SDL2 ports）两种目标，配置预加载资源和自定义 HTML shell。",
+      "tags": ["build", "cmake", "cross-platform"],
+      "complexity": "moderate",
+      "sizeLines": 58
     },
     {
-      "id": "config:.clangd",
-      "type": "config",
-      "name": ".clangd",
-      "filePath": ".clangd",
-      "summary": "Clangd 语言服务器配置，指向 build/ 目录的 compile_commands.json。",
-      "tags": ["ide", "clangd", "configuration"]
+      "id": "file:web/shell.html",
+      "type": "file",
+      "name": "shell.html",
+      "filePath": "web/shell.html",
+      "summary": "Emscripten HTML shell 模板。配置 viewport 禁止缩放、touch-action、loading spinner，以及 Module 初始化回调。",
+      "tags": ["web", "emscripten", "mobile", "pwa"],
+      "complexity": "simple",
+      "sizeLines": 63
     },
     {
-      "id": "config:.vscode/settings.json",
-      "type": "config",
-      "name": "settings.json",
-      "filePath": ".vscode/settings.json",
-      "summary": "VS Code 工作区设置。配置 CMake 路径指向 MSYS2 UCRT64 工具链（cmake/ninja/g++），开启自动 configure，设置 C++17 标准和 IntelliSense。",
-      "tags": ["ide", "vscode", "configuration", "toolchain"]
+      "id": "document:docs/设计说明文档.md",
+      "type": "document",
+      "name": "设计说明文档",
+      "filePath": "docs/设计说明文档.md",
+      "summary": "项目完整设计文档。涵盖 Bitboard 架构选型、查表加速原理、Expectimax AI 算法、SDL2 UI 设计、动画系统和开发路线图。",
+      "tags": ["documentation", "design", "architecture"],
+      "complexity": "moderate",
+      "sizeLines": 702
+    },
+    {
+      "id": "document:docs/开发过程文档.md",
+      "type": "document",
+      "name": "开发过程文档",
+      "filePath": "docs/开发过程文档.md",
+      "summary": "开发进度追踪文档。记录架构决策、AI benchmark 结果、SDL2 UI 实现、动画优化和功能迭代历史。",
+      "tags": ["documentation", "changelog", "progress"],
+      "complexity": "simple",
+      "sizeLines": 149
+    },
+    {
+      "id": "document:docs/移动端Web版方案.md",
+      "type": "document",
+      "name": "移动端Web版方案",
+      "filePath": "docs/移动端Web版方案.md",
+      "summary": "移动端 WebAssembly 部署技术方案。详述 Emscripten 构建配置、主循环适配、触控输入、响应式布局、字体嵌入、localStorage 持久化、PWA 和 GitHub Pages 部署。",
+      "tags": ["documentation", "web", "deployment", "plan"],
+      "complexity": "moderate",
+      "sizeLines": 407
     },
     {
       "id": "config:.vscode/tasks.json",
       "type": "config",
       "name": "tasks.json",
       "filePath": ".vscode/tasks.json",
-      "summary": "VS Code 构建任务定义。三个任务：CMake Configure（配置 Release 构建）、CMake Build（默认构建任务，依赖 Configure）、Run Game（运行可执行文件，依赖 Build）。",
-      "tags": ["ide", "vscode", "build-task", "configuration"]
+      "summary": "VSCode 构建任务配置。定义 CMake configure、build 和 run 任务。",
+      "tags": ["ide", "vscode", "build"],
+      "complexity": "simple",
+      "sizeLines": 40
     },
     {
       "id": "config:.vscode/launch.json",
       "type": "config",
       "name": "launch.json",
       "filePath": ".vscode/launch.json",
-      "summary": "VS Code 调试配置。使用 MSYS2 的 GDB 调试 build/game2048.exe，启用 pretty-printing，构建前自动执行 CMake Build 任务。",
-      "tags": ["ide", "vscode", "debug", "configuration"]
+      "summary": "VSCode 调试启动配置。配置 GDB 调试器目标和工作目录。",
+      "tags": ["ide", "vscode", "debug"],
+      "complexity": "simple",
+      "sizeLines": 26
     },
     {
-      "id": "config:.vscode/c_cpp_properties.json",
+      "id": "config:.clangd",
       "type": "config",
-      "name": "c_cpp_properties.json",
-      "filePath": ".vscode/c_cpp_properties.json",
-      "summary": "VS Code C/C++ IntelliSense 配置。使用 MSYS2 UCRT64 的 g++，C++17 标准，包含 include/ 路径，gcc-x64 模式。",
-      "tags": ["ide", "vscode", "intellisense", "configuration"]
+      "name": ".clangd",
+      "filePath": ".clangd",
+      "summary": "Clangd LSP 配置。指定 compile_commands.json 路径以支持智能补全和跳转。",
+      "tags": ["ide", "lsp", "clangd"],
+      "complexity": "simple",
+      "sizeLines": 2
     },
     {
-      "id": "document:设计说明文档.md",
-      "type": "document",
-      "name": "设计说明文档.md",
-      "filePath": "设计说明文档.md",
-      "summary": "项目整体设计说明（终端版）。涵盖 Bitboard 棋盘表示、查找表优化、终端渲染方案、AI Expectimax 算法原理、启发式评估函数设计、模块架构和开发路线图。",
-      "tags": ["design-doc", "architecture", "specification"]
-    },
-    {
-      "id": "document:docs/设计说明文档.md",
-      "type": "document",
-      "name": "docs/设计说明文档.md",
-      "filePath": "docs/设计说明文档.md",
-      "summary": "项目设计说明（Web 版）。面向 SDL2 + Emscripten 的移动网页端设计，包含 4-bit vs 5-bit 方案对比、查找表完整实现示例、SDL2 渲染/布局/配色/动画、触控手势识别和 Emscripten WebAssembly 集成方案。",
-      "tags": ["design-doc", "web", "sdl2", "emscripten", "specification"]
-    },
-    {
-      "id": "document:docs/开发过程文档.md",
-      "type": "document",
-      "name": "docs/开发过程文档.md",
-      "filePath": "docs/开发过程文档.md",
-      "summary": "开发过程记录文档。记录 Phase 1 核心逻辑搭建的完成内容、架构决策（Bitboard 4-bit、查表法、启发式权重、Expectimax 策略）、文件依赖关系图和后续计划。",
-      "tags": ["devlog", "architecture-decisions", "progress"]
-    },
-    {
-      "id": "function:src/main.cpp:print_board",
-      "type": "function",
-      "name": "print_board",
-      "filePath": "src/main.cpp",
-      "summary": "终端文本格式打印棋盘。遍历 4×4 格子，通过 get_tile_value 获取实际 tile 值并格式化为表格输出。",
-      "tags": ["utility", "display", "debug"]
-    },
-    {
-      "id": "function:src/main.cpp:test_tables",
-      "type": "function",
-      "name": "test_tables",
-      "filePath": "src/main.cpp",
-      "summary": "查找表正确性验证。使用预定义测试用例验证 move_left_table 和 score_table 的输出，并随机抽样 1000 行验证左右移动对称性。",
-      "tags": ["test", "validation", "lookup-table"]
-    },
-    {
-      "id": "function:src/main.cpp:test_board_ops",
-      "type": "function",
-      "name": "test_board_ops",
-      "filePath": "src/main.cpp",
-      "summary": "棋盘操作单元测试。验证 set_cell/get_cell 往返一致性、count_empty 准确性和 transpose 行列互换正确性。",
-      "tags": ["test", "validation", "board-ops"]
-    },
-    {
-      "id": "function:src/main.cpp:test_full_move",
-      "type": "function",
-      "name": "test_full_move",
-      "filePath": "src/main.cpp",
-      "summary": "完整移动逻辑验证。构造已知局面，执行向左移动，验证合并结果与预期一致。",
-      "tags": ["test", "validation", "move"]
-    },
-    {
-      "id": "function:src/main.cpp:play_one_game",
-      "type": "function",
-      "name": "play_one_game",
-      "filePath": "src/main.cpp",
-      "summary": "AI 自动对弈一局。循环调用 AIEngine::find_best_move 决策、执行移动并放置新方块，直到 Game Over，返回分数/最大 tile/步数/平均决策耗时。",
-      "tags": ["benchmark", "game-loop", "ai"]
-    },
-    {
-      "id": "function:src/main.cpp:run_benchmark",
-      "type": "function",
-      "name": "run_benchmark",
-      "filePath": "src/main.cpp",
-      "summary": "AI 基准测试。运行指定局数的自动对弈，统计平均分/最高分/各 tile 达成率/总耗时并输出报告。",
-      "tags": ["benchmark", "statistics", "performance"]
-    },
-    {
-      "id": "function:src/main.cpp:main",
-      "type": "function",
-      "name": "main",
-      "filePath": "src/main.cpp",
-      "summary": "程序入口。初始化查找表 → 运行三组单元测试 → 全部通过后运行 AI 基准测试（默认 10 局）。",
-      "tags": ["entry-point", "main"]
-    },
-    {
-      "id": "function:src/ai.cpp:AIEngine::AIEngine",
-      "type": "function",
-      "name": "AIEngine::AIEngine",
-      "filePath": "src/ai.cpp",
-      "summary": "AIEngine 构造函数。接受 AIConfig 参数初始化搜索配置。",
-      "tags": ["constructor", "ai"]
-    },
-    {
-      "id": "function:src/ai.cpp:AIEngine::adaptive_depth",
-      "type": "function",
-      "name": "AIEngine::adaptive_depth",
-      "filePath": "src/ai.cpp",
-      "summary": "自适应搜索深度。根据棋盘空格数动态调整搜索深度：空格多时浅搜（depth 2-3），空格少时深搜（depth 5-6），平衡搜索质量与速度。",
-      "tags": ["ai", "depth-control", "optimization"]
-    },
-    {
-      "id": "function:src/ai.cpp:AIEngine::find_best_move",
-      "type": "function",
-      "name": "AIEngine::find_best_move",
-      "filePath": "src/ai.cpp",
-      "summary": "AI 决策入口。清空缓存、确定搜索深度，对四个方向分别执行 score_chance_node 搜索，返回评估值最高的方向。记录搜索时间和深度统计。",
-      "tags": ["ai", "decision", "public-api"]
-    },
-    {
-      "id": "function:src/ai.cpp:AIEngine::score_chance_node",
-      "type": "function",
-      "name": "AIEngine::score_chance_node",
-      "filePath": "src/ai.cpp",
-      "summary": "CHANCE 节点评估。遍历所有空格，对每个位置按 90%/10% 概率放置 2/4，递归调用 score_move_node 并加权平均。实现深度终止、概率裁剪和 Transposition Table 缓存三重优化。",
-      "tags": ["ai", "search", "expectimax", "chance-node"]
-    },
-    {
-      "id": "function:src/ai.cpp:AIEngine::score_move_node",
-      "type": "function",
-      "name": "AIEngine::score_move_node",
-      "filePath": "src/ai.cpp",
-      "summary": "MAX 节点评估。尝试四个移动方向，对有效移动递归调用 score_chance_node，返回最大评估值。无合法移动时返回当前局面启发式评分。",
-      "tags": ["ai", "search", "expectimax", "max-node"]
-    },
-    {
-      "id": "function:src/tables.cpp:compute_row_heuristic",
-      "type": "function",
-      "name": "compute_row_heuristic",
-      "filePath": "src/tables.cpp",
-      "summary": "单行启发式评估。综合五个特征的加权求和：空格奖励(270)、单调性惩罚(47)、平滑度惩罚(10)、合并潜力奖励(11)和位置权重(1.5×平方加权)。",
-      "tags": ["heuristic", "evaluation", "ai-support"]
-    },
-    {
-      "id": "function:src/tables.cpp:init_tables",
-      "type": "function",
-      "name": "init_tables",
-      "filePath": "src/tables.cpp",
-      "summary": "初始化所有预计算查找表。Pass 1：遍历 65536 种行状态，模拟左移（解码→压缩→合并→编码），填充 move_left_table/score_table/heur_table。Pass 2：利用 reverse_row 对称性推导 move_right_table。",
-      "tags": ["initialization", "lookup-table", "precomputation"]
-    },
-    {
-      "id": "class:include/ai.h:AIConfig",
+      "id": "class:include/board.h:board_t",
       "type": "class",
-      "name": "AIConfig",
-      "filePath": "include/ai.h",
-      "summary": "AI 搜索配置结构体。包含最大搜索深度(默认6)、概率裁剪阈值(默认0.001)和缓存深度上限(默认5)三个可调参数。",
-      "tags": ["ai", "configuration", "struct"]
-    },
-    {
-      "id": "class:include/ai.h:AIStats",
-      "type": "class",
-      "name": "AIStats",
-      "filePath": "include/ai.h",
-      "summary": "AI 搜索统计结构体。记录评估节点数、缓存命中数、实际搜索深度和搜索耗时(ms)。",
-      "tags": ["ai", "statistics", "struct"]
+      "name": "board_t (Bitboard)",
+      "filePath": "include/board.h",
+      "summary": "64-bit 无符号整数类型别名，编码 4×4 棋盘。每格 4-bit nybble 存储 tile 的 log2 值（0=空，1=2，2=4，...15=32768）。row0 在高 16 bit，row3 在低 16 bit。",
+      "tags": ["bitboard", "typedef", "core-type"]
     },
     {
       "id": "class:include/ai.h:AIEngine",
       "type": "class",
       "name": "AIEngine",
       "filePath": "include/ai.h",
-      "summary": "Expectimax AI 引擎类。对外提供 find_best_move 决策接口和 last_stats 统计查询。内部维护搜索配置、统计数据和 Transposition Table（unordered_map）。",
-      "tags": ["ai", "expectimax", "engine", "class"],
-      "complexity": "complex"
+      "summary": "Expectimax 搜索引擎。通过 find_best_move() 返回最优方向。内部使用 Transposition Table、概率裁剪和自适应深度控制优化搜索效率。",
+      "tags": ["ai", "expectimax", "class"]
     },
     {
-      "id": "class:include/ai.h:CacheEntry",
+      "id": "class:include/renderer.h:Renderer",
       "type": "class",
-      "name": "CacheEntry",
-      "filePath": "include/ai.h",
-      "summary": "Transposition Table 缓存条目。存储搜索深度和对应的启发式评估值，用于避免重复计算相同局面。",
-      "tags": ["ai", "cache", "transposition-table", "struct"]
+      "name": "Renderer",
+      "filePath": "include/renderer.h",
+      "summary": "SDL2 渲染器类。管理窗口/渲染器/字体资源，执行棋盘绘制、动画更新、UI 按钮检测和响应式布局。",
+      "tags": ["renderer", "sdl2", "class"]
     },
     {
-      "id": "class:src/main.cpp:GameResult",
+      "id": "class:include/game.h:Game",
       "type": "class",
-      "name": "GameResult",
-      "filePath": "src/main.cpp",
-      "summary": "单局对弈结果结构体。包含总分、最大 tile 值、移动步数和平均决策耗时(ms)。",
-      "tags": ["benchmark", "data", "struct"]
+      "name": "Game",
+      "filePath": "include/game.h",
+      "summary": "顶层游戏控制器。编排 Renderer 和 AIEngine，管理游戏状态机（Playing/Won/GameOver）、撤销栈、AI 接管模式和触控手势识别。",
+      "tags": ["controller", "class", "game-state"]
+    },
+    {
+      "id": "function:src/tables.cpp:init_tables",
+      "type": "function",
+      "name": "init_tables()",
+      "filePath": "src/tables.cpp",
+      "summary": "程序启动时调用一次，遍历 65536 种行状态预计算左移结果、合并得分和启发式评估值，第二遍填充右移表。",
+      "tags": ["initialization", "precomputation"]
+    },
+    {
+      "id": "function:include/tables.h:evaluate_board",
+      "type": "function",
+      "name": "evaluate_board()",
+      "filePath": "include/tables.h",
+      "summary": "O(1) 棋盘启发式评估。对 4 行 + 4 列（转置后）分别查 heur_table 求和。AI 搜索中最频繁调用的函数。",
+      "tags": ["heuristic", "performance", "hot-path"]
+    },
+    {
+      "id": "function:src/ai.cpp:find_best_move",
+      "type": "function",
+      "name": "AIEngine::find_best_move()",
+      "filePath": "src/ai.cpp",
+      "summary": "AI 决策入口。清空缓存→自适应深度→尝试 4 方向→选 score_chance_node 评估值最高的方向返回。",
+      "tags": ["ai", "decision", "entry-point"]
+    },
+    {
+      "id": "function:src/ai.cpp:score_chance_node",
+      "type": "function",
+      "name": "AIEngine::score_chance_node()",
+      "filePath": "src/ai.cpp",
+      "summary": "CHANCE 节点：遍历所有空格位置，分别放 2（90%）和 4（10%），递归调用 MAX 节点取加权期望。支持概率裁剪和 Transposition Table 缓存。",
+      "tags": ["ai", "expectimax", "chance-node"]
+    },
+    {
+      "id": "function:src/ai.cpp:score_move_node",
+      "type": "function",
+      "name": "AIEngine::score_move_node()",
+      "filePath": "src/ai.cpp",
+      "summary": "MAX 节点：尝试 4 个方向，取 score_chance_node 最大值。无合法移动时返回当前棋盘的启发式评估。",
+      "tags": ["ai", "expectimax", "max-node"]
+    },
+    {
+      "id": "function:src/game.cpp:Game::tick",
+      "type": "function",
+      "name": "Game::tick()",
+      "filePath": "src/game.cpp",
+      "summary": "单帧逻辑入口。处理事件→更新动画 dt→AI 定时步进→检测窗口 resize→调用 renderer.render()。Emscripten 通过 set_main_loop 每帧回调此函数。",
+      "tags": ["game-loop", "frame", "emscripten"]
+    },
+    {
+      "id": "function:src/game.cpp:Game::do_move",
+      "type": "function",
+      "name": "Game::do_move()",
+      "filePath": "src/game.cpp",
+      "summary": "执行一次移动。验证有效→压入撤销栈→计算得分→触发移动动画→spawn 新方块→检查游戏状态。",
+      "tags": ["game-logic", "move", "undo"]
+    },
+    {
+      "id": "function:src/renderer.cpp:Renderer::start_move_anim",
+      "type": "function",
+      "name": "Renderer::start_move_anim()",
+      "filePath": "src/renderer.cpp",
+      "summary": "启动滑动动画。比较移动前后棋盘差异，为每个移动的 tile 创建 TileAnim 轨迹，为合并位创建 MergeAnim（带延迟）。",
+      "tags": ["animation", "slide", "merge"]
+    },
+    {
+      "id": "function:include/board.h:transpose",
+      "type": "function",
+      "name": "transpose()",
+      "filePath": "include/board.h",
+      "summary": "棋盘转置（行列互换）。通过 6 次 nybble 交换完成，使列操作可复用行操作：move_up = transpose → move_left → transpose。",
+      "tags": ["bitboard", "optimization"]
     }
   ],
   "edges": [
-    {"source": "file:src/main.cpp", "target": "file:include/board.h", "type": "imports", "weight": 0.7, "label": "#include \"board.h\""},
-    {"source": "file:src/main.cpp", "target": "file:include/tables.h", "type": "imports", "weight": 0.7, "label": "#include \"tables.h\""},
-    {"source": "file:src/main.cpp", "target": "file:include/ai.h", "type": "imports", "weight": 0.7, "label": "#include \"ai.h\""},
-    {"source": "file:src/ai.cpp", "target": "file:include/ai.h", "type": "imports", "weight": 0.7, "label": "#include \"ai.h\""},
-    {"source": "file:include/ai.h", "target": "file:include/board.h", "type": "imports", "weight": 0.7, "label": "#include \"board.h\""},
-    {"source": "file:include/ai.h", "target": "file:include/tables.h", "type": "imports", "weight": 0.7, "label": "#include \"tables.h\""},
-    {"source": "file:src/tables.cpp", "target": "file:include/tables.h", "type": "imports", "weight": 0.7, "label": "#include \"tables.h\""},
-    {"source": "file:include/tables.h", "target": "file:include/board.h", "type": "imports", "weight": 0.7, "label": "#include \"board.h\""},
-
-    {"source": "file:src/main.cpp", "target": "function:src/main.cpp:main", "type": "contains", "weight": 1.0},
-    {"source": "file:src/main.cpp", "target": "function:src/main.cpp:print_board", "type": "contains", "weight": 1.0},
-    {"source": "file:src/main.cpp", "target": "function:src/main.cpp:test_tables", "type": "contains", "weight": 1.0},
-    {"source": "file:src/main.cpp", "target": "function:src/main.cpp:test_board_ops", "type": "contains", "weight": 1.0},
-    {"source": "file:src/main.cpp", "target": "function:src/main.cpp:test_full_move", "type": "contains", "weight": 1.0},
-    {"source": "file:src/main.cpp", "target": "function:src/main.cpp:play_one_game", "type": "contains", "weight": 1.0},
-    {"source": "file:src/main.cpp", "target": "function:src/main.cpp:run_benchmark", "type": "contains", "weight": 1.0},
-    {"source": "file:src/main.cpp", "target": "class:src/main.cpp:GameResult", "type": "contains", "weight": 1.0},
-
-    {"source": "file:src/ai.cpp", "target": "function:src/ai.cpp:AIEngine::AIEngine", "type": "contains", "weight": 1.0},
-    {"source": "file:src/ai.cpp", "target": "function:src/ai.cpp:AIEngine::adaptive_depth", "type": "contains", "weight": 1.0},
-    {"source": "file:src/ai.cpp", "target": "function:src/ai.cpp:AIEngine::find_best_move", "type": "contains", "weight": 1.0},
-    {"source": "file:src/ai.cpp", "target": "function:src/ai.cpp:AIEngine::score_chance_node", "type": "contains", "weight": 1.0},
-    {"source": "file:src/ai.cpp", "target": "function:src/ai.cpp:AIEngine::score_move_node", "type": "contains", "weight": 1.0},
-
-    {"source": "file:src/tables.cpp", "target": "function:src/tables.cpp:compute_row_heuristic", "type": "contains", "weight": 1.0},
-    {"source": "file:src/tables.cpp", "target": "function:src/tables.cpp:init_tables", "type": "contains", "weight": 1.0},
-
-    {"source": "file:include/ai.h", "target": "class:include/ai.h:AIConfig", "type": "contains", "weight": 1.0},
-    {"source": "file:include/ai.h", "target": "class:include/ai.h:AIStats", "type": "contains", "weight": 1.0},
-    {"source": "file:include/ai.h", "target": "class:include/ai.h:AIEngine", "type": "contains", "weight": 1.0},
-    {"source": "file:include/ai.h", "target": "class:include/ai.h:CacheEntry", "type": "contains", "weight": 1.0},
-
-    {"source": "class:include/ai.h:AIEngine", "target": "class:include/ai.h:AIConfig", "type": "depends_on", "weight": 0.6, "label": "config_ 成员"},
-    {"source": "class:include/ai.h:AIEngine", "target": "class:include/ai.h:AIStats", "type": "depends_on", "weight": 0.6, "label": "stats_ 成员"},
-    {"source": "class:include/ai.h:AIEngine", "target": "class:include/ai.h:CacheEntry", "type": "depends_on", "weight": 0.6, "label": "cache_ 值类型"},
-
-    {"source": "function:src/main.cpp:main", "target": "function:src/tables.cpp:init_tables", "type": "calls", "weight": 0.8, "label": "init_tables() 初始化查找表"},
-    {"source": "function:src/main.cpp:main", "target": "function:src/main.cpp:test_tables", "type": "calls", "weight": 0.8},
-    {"source": "function:src/main.cpp:main", "target": "function:src/main.cpp:test_board_ops", "type": "calls", "weight": 0.8},
-    {"source": "function:src/main.cpp:main", "target": "function:src/main.cpp:test_full_move", "type": "calls", "weight": 0.8},
-    {"source": "function:src/main.cpp:main", "target": "function:src/main.cpp:run_benchmark", "type": "calls", "weight": 0.8},
-
-    {"source": "function:src/main.cpp:run_benchmark", "target": "function:src/main.cpp:play_one_game", "type": "calls", "weight": 0.8},
-    {"source": "function:src/main.cpp:play_one_game", "target": "function:src/ai.cpp:AIEngine::find_best_move", "type": "calls", "weight": 0.8, "label": "AI 决策"},
-
-    {"source": "function:src/ai.cpp:AIEngine::find_best_move", "target": "function:src/ai.cpp:AIEngine::adaptive_depth", "type": "calls", "weight": 0.8},
-    {"source": "function:src/ai.cpp:AIEngine::find_best_move", "target": "function:src/ai.cpp:AIEngine::score_chance_node", "type": "calls", "weight": 0.8, "label": "从 CHANCE 节点开始搜索"},
-    {"source": "function:src/ai.cpp:AIEngine::score_chance_node", "target": "function:src/ai.cpp:AIEngine::score_move_node", "type": "calls", "weight": 0.8, "label": "CHANCE→MAX 递归"},
-    {"source": "function:src/ai.cpp:AIEngine::score_move_node", "target": "function:src/ai.cpp:AIEngine::score_chance_node", "type": "calls", "weight": 0.8, "label": "MAX→CHANCE 递归"},
-
-    {"source": "function:src/tables.cpp:init_tables", "target": "function:src/tables.cpp:compute_row_heuristic", "type": "calls", "weight": 0.8, "label": "计算启发式表"},
-
-    {"source": "function:src/main.cpp:test_tables", "target": "function:src/tables.cpp:init_tables", "type": "depends_on", "weight": 0.6, "label": "验证查找表"},
-    {"source": "function:src/main.cpp:test_board_ops", "target": "file:include/board.h", "type": "depends_on", "weight": 0.6, "label": "验证棋盘操作"},
-    {"source": "function:src/main.cpp:test_full_move", "target": "file:include/tables.h", "type": "depends_on", "weight": 0.6, "label": "验证移动逻辑"},
-
-    {"source": "config:CMakeLists.txt", "target": "file:src/main.cpp", "type": "configures", "weight": 0.6, "label": "add_executable 源文件"},
-    {"source": "config:CMakeLists.txt", "target": "file:src/tables.cpp", "type": "configures", "weight": 0.6, "label": "add_executable 源文件"},
-    {"source": "config:CMakeLists.txt", "target": "file:src/ai.cpp", "type": "configures", "weight": 0.6, "label": "add_executable 源文件"},
-
-    {"source": "config:.clangd", "target": "config:CMakeLists.txt", "type": "depends_on", "weight": 0.6, "label": "引用 build/ 下的 compile_commands.json"},
-
-    {"source": "config:.vscode/settings.json", "target": "config:CMakeLists.txt", "type": "configures", "weight": 0.6, "label": "CMake 工具链配置"},
-    {"source": "config:.vscode/tasks.json", "target": "config:CMakeLists.txt", "type": "configures", "weight": 0.6, "label": "CMake 构建任务"},
-    {"source": "config:.vscode/launch.json", "target": "config:.vscode/tasks.json", "type": "depends_on", "weight": 0.6, "label": "preLaunchTask 依赖"},
-
-    {"source": "document:设计说明文档.md", "target": "file:include/board.h", "type": "documents", "weight": 0.5, "label": "设计 Bitboard 表示"},
-    {"source": "document:设计说明文档.md", "target": "file:include/tables.h", "type": "documents", "weight": 0.5, "label": "设计查表法"},
-    {"source": "document:设计说明文档.md", "target": "file:include/ai.h", "type": "documents", "weight": 0.5, "label": "设计 Expectimax AI"},
-    {"source": "document:docs/设计说明文档.md", "target": "file:include/board.h", "type": "documents", "weight": 0.5, "label": "Web 版设计"},
-    {"source": "document:docs/设计说明文档.md", "target": "file:include/tables.h", "type": "documents", "weight": 0.5, "label": "Web 版设计"},
-    {"source": "document:docs/开发过程文档.md", "target": "file:src/main.cpp", "type": "documents", "weight": 0.5, "label": "记录开发进度"}
+    {"source": "file:src/main.cpp", "target": "class:include/game.h:Game", "type": "imports", "weight": 0.7},
+    {"source": "file:src/main.cpp", "target": "function:src/game.cpp:Game::tick", "type": "calls", "weight": 0.8},
+    {"source": "file:include/game.h", "target": "class:include/ai.h:AIEngine", "type": "imports", "weight": 0.7},
+    {"source": "file:include/game.h", "target": "class:include/renderer.h:Renderer", "type": "imports", "weight": 0.7},
+    {"source": "file:include/game.h", "target": "file:include/board.h", "type": "imports", "weight": 0.7},
+    {"source": "file:include/game.h", "target": "file:include/tables.h", "type": "imports", "weight": 0.7},
+    {"source": "class:include/game.h:Game", "target": "class:include/renderer.h:Renderer", "type": "depends_on", "weight": 0.6},
+    {"source": "class:include/game.h:Game", "target": "class:include/ai.h:AIEngine", "type": "depends_on", "weight": 0.6},
+    {"source": "function:src/game.cpp:Game::do_move", "target": "function:src/renderer.cpp:Renderer::start_move_anim", "type": "calls", "weight": 0.8},
+    {"source": "function:src/game.cpp:Game::do_move", "target": "function:src/game.cpp:Game::tick", "type": "related", "weight": 0.5},
+    {"source": "function:src/game.cpp:Game::tick", "target": "class:include/renderer.h:Renderer", "type": "calls", "weight": 0.8},
+    {"source": "file:include/tables.h", "target": "file:include/board.h", "type": "imports", "weight": 0.7},
+    {"source": "file:include/tables.h", "target": "class:include/board.h:board_t", "type": "depends_on", "weight": 0.6},
+    {"source": "file:src/tables.cpp", "target": "file:include/tables.h", "type": "imports", "weight": 0.7},
+    {"source": "function:src/tables.cpp:init_tables", "target": "file:include/tables.h", "type": "contains", "weight": 1.0},
+    {"source": "file:include/ai.h", "target": "file:include/board.h", "type": "imports", "weight": 0.7},
+    {"source": "file:include/ai.h", "target": "file:include/tables.h", "type": "imports", "weight": 0.7},
+    {"source": "file:src/ai.cpp", "target": "file:include/ai.h", "type": "imports", "weight": 0.7},
+    {"source": "class:include/ai.h:AIEngine", "target": "function:include/tables.h:evaluate_board", "type": "calls", "weight": 0.8},
+    {"source": "function:src/ai.cpp:find_best_move", "target": "function:src/ai.cpp:score_chance_node", "type": "calls", "weight": 0.8},
+    {"source": "function:src/ai.cpp:score_chance_node", "target": "function:src/ai.cpp:score_move_node", "type": "calls", "weight": 0.8},
+    {"source": "function:src/ai.cpp:score_move_node", "target": "function:src/ai.cpp:score_chance_node", "type": "calls", "weight": 0.8},
+    {"source": "function:src/ai.cpp:score_chance_node", "target": "function:include/tables.h:evaluate_board", "type": "calls", "weight": 0.8},
+    {"source": "file:include/renderer.h", "target": "file:include/board.h", "type": "imports", "weight": 0.7},
+    {"source": "file:src/renderer.cpp", "target": "file:include/renderer.h", "type": "imports", "weight": 0.7},
+    {"source": "config:CMakeLists.txt", "target": "file:src/main.cpp", "type": "configures", "weight": 0.6},
+    {"source": "config:CMakeLists.txt", "target": "file:src/renderer.cpp", "type": "configures", "weight": 0.6},
+    {"source": "config:CMakeLists.txt", "target": "file:web/shell.html", "type": "configures", "weight": 0.6},
+    {"source": "file:web/shell.html", "target": "file:src/game.cpp", "type": "related", "weight": 0.5},
+    {"source": "document:docs/设计说明文档.md", "target": "file:include/board.h", "type": "documents", "weight": 0.5},
+    {"source": "document:docs/设计说明文档.md", "target": "class:include/ai.h:AIEngine", "type": "documents", "weight": 0.5},
+    {"source": "document:docs/设计说明文档.md", "target": "class:include/renderer.h:Renderer", "type": "documents", "weight": 0.5},
+    {"source": "document:docs/移动端Web版方案.md", "target": "file:web/shell.html", "type": "documents", "weight": 0.5},
+    {"source": "document:docs/移动端Web版方案.md", "target": "config:CMakeLists.txt", "type": "documents", "weight": 0.5},
+    {"source": "document:docs/开发过程文档.md", "target": "document:docs/设计说明文档.md", "type": "related", "weight": 0.5},
+    {"source": "config:.vscode/tasks.json", "target": "config:CMakeLists.txt", "type": "configures", "weight": 0.6},
+    {"source": "config:.vscode/launch.json", "target": "file:src/main.cpp", "type": "configures", "weight": 0.6},
+    {"source": "config:.clangd", "target": "config:CMakeLists.txt", "type": "configures", "weight": 0.6},
+    {"source": "function:include/board.h:transpose", "target": "class:include/board.h:board_t", "type": "related", "weight": 0.5},
+    {"source": "class:include/game.h:Game", "target": "function:src/game.cpp:Game::do_move", "type": "contains", "weight": 1.0},
+    {"source": "class:include/game.h:Game", "target": "function:src/game.cpp:Game::tick", "type": "contains", "weight": 1.0},
+    {"source": "class:include/ai.h:AIEngine", "target": "function:src/ai.cpp:find_best_move", "type": "contains", "weight": 1.0},
+    {"source": "class:include/ai.h:AIEngine", "target": "function:src/ai.cpp:score_chance_node", "type": "contains", "weight": 1.0},
+    {"source": "class:include/ai.h:AIEngine", "target": "function:src/ai.cpp:score_move_node", "type": "contains", "weight": 1.0},
+    {"source": "class:include/renderer.h:Renderer", "target": "function:src/renderer.cpp:Renderer::start_move_anim", "type": "contains", "weight": 1.0}
   ],
   "layers": [
     {
-      "id": "layer:core-data-structures",
-      "name": "核心数据结构层",
-      "description": "Bitboard 棋盘编码和基础操作（get/set/transpose/count），是整个项目的数据基础。",
-      "nodeIds": ["file:include/board.h"]
-    },
-    {
-      "id": "layer:lookup-tables",
-      "name": "预计算查找表层",
-      "description": "65536 项查找表的声明、初始化和基于查表的高性能移动/评估操作。是连接棋盘操作和 AI 搜索的性能关键层。",
-      "nodeIds": ["file:include/tables.h", "file:src/tables.cpp"]
+      "id": "layer:core-data",
+      "name": "核心数据层",
+      "description": "Bitboard 棋盘表示和预计算查找表，提供 O(1) 的移动、评估和状态判定操作",
+      "nodeIds": ["file:include/board.h", "file:include/tables.h", "file:src/tables.cpp"]
     },
     {
       "id": "layer:ai-engine",
-      "name": "AI 搜索引擎层",
-      "description": "Expectimax 博弈树搜索引擎，包含 CHANCE/MAX 节点交替搜索、自适应深度、Transposition Table 和概率裁剪。",
+      "name": "AI 搜索层",
+      "description": "Expectimax 博弈树搜索引擎，基于概率裁剪和 Transposition Table 优化",
       "nodeIds": ["file:include/ai.h", "file:src/ai.cpp"]
     },
     {
-      "id": "layer:application",
-      "name": "应用层",
-      "description": "程序入口、单元测试和 AI 基准测试框架。组织测试流程和性能评估。",
-      "nodeIds": ["file:src/main.cpp"]
+      "id": "layer:rendering",
+      "name": "渲染层",
+      "description": "SDL2 图形渲染，包含响应式布局、三阶段动画系统和 UI 交互组件",
+      "nodeIds": ["file:include/renderer.h", "file:src/renderer.cpp"]
     },
     {
-      "id": "layer:build-and-tooling",
-      "name": "构建与工具链层",
-      "description": "CMake 构建配置和 IDE 开发环境设置（VS Code、Clangd）。",
-      "nodeIds": ["config:CMakeLists.txt", "config:.clangd", "config:.vscode/settings.json", "config:.vscode/tasks.json", "config:.vscode/launch.json", "config:.vscode/c_cpp_properties.json"]
+      "id": "layer:game-logic",
+      "name": "游戏逻辑层",
+      "description": "顶层控制器，编排渲染器和 AI，管理状态机、输入、撤销和跨平台主循环",
+      "nodeIds": ["file:include/game.h", "file:src/game.cpp", "file:src/main.cpp"]
+    },
+    {
+      "id": "layer:web-platform",
+      "name": "Web 平台层",
+      "description": "Emscripten WebAssembly 部署支持，包含 HTML shell 和移动端适配",
+      "nodeIds": ["file:web/shell.html"]
+    },
+    {
+      "id": "layer:build-config",
+      "name": "构建与配置",
+      "description": "CMake 跨平台构建、IDE 配置和语言服务器设置",
+      "nodeIds": ["config:CMakeLists.txt", "config:.vscode/tasks.json", "config:.vscode/launch.json", "config:.clangd"]
     },
     {
       "id": "layer:documentation",
       "name": "文档层",
-      "description": "项目设计文档和开发过程记录。包含终端版和 Web 版两套设计方案及架构决策。",
-      "nodeIds": ["document:设计说明文档.md", "document:docs/设计说明文档.md", "document:docs/开发过程文档.md"]
+      "description": "设计文档、开发日志和技术方案",
+      "nodeIds": ["document:docs/设计说明文档.md", "document:docs/开发过程文档.md", "document:docs/移动端Web版方案.md"]
     }
   ],
   "tour": [
     {
       "order": 1,
-      "title": "项目概览与设计思路",
-      "description": "从设计文档开始了解项目目标：用纯 C++ 实现 2048 游戏 + AI 冲分助手。核心技术选型是 Bitboard + 查表法 + Expectimax 搜索。",
-      "nodeIds": ["document:设计说明文档.md", "document:docs/开发过程文档.md"]
+      "title": "项目入口与启动流程",
+      "description": "从 main.cpp 开始，了解程序如何初始化并进入主循环。Game 对象是整个应用的编排核心。",
+      "nodeIds": ["file:src/main.cpp", "class:include/game.h:Game"]
     },
     {
       "order": 2,
       "title": "Bitboard 棋盘表示",
-      "description": "项目的数据基础。4×4 棋盘用一个 uint64_t 编码（每格 4 bit 存 log2 值），提供极致的内存效率和运算速度。理解 get_cell/set_cell/transpose 等位操作是读懂后续代码的关键。",
-      "nodeIds": ["file:include/board.h"],
-      "languageLesson": "C++ 位操作技巧：用位移和掩码从 64 位整数中提取/设置 4-bit 字段，inline 函数确保零开销抽象。"
+      "description": "理解 2048 的核心数据结构：64-bit 整数如何紧凑编码 4×4 棋盘，以及 get/set/transpose 等基础操作的位运算技巧。",
+      "nodeIds": ["file:include/board.h", "class:include/board.h:board_t", "function:include/board.h:transpose"]
     },
     {
       "order": 3,
-      "title": "预计算查找表",
-      "description": "性能的核心秘密。tables.h 声明四张 65536 项数组，tables.cpp 在启动时一次性填充。每种行状态的移动结果、得分和启发式值都预算好，运行时 O(1) 查表。右移通过 reverse_row 复用左移，上下移通过 transpose 复用行操作。",
-      "nodeIds": ["file:include/tables.h", "file:src/tables.cpp"],
-      "languageLesson": "查表法将 O(n) 的模拟操作变为 O(1) 的数组访问，代价仅 768KB 内存。init_tables 的双遍算法展示了依赖顺序对预计算的影响。"
+      "title": "查表加速：从 200ns 到 5ns",
+      "description": "预计算查找表是性能的关键。tables.cpp 在启动时填充 65536 种行状态的移动结果，运行时只需一次数组访问即可完成一行操作。",
+      "nodeIds": ["file:include/tables.h", "file:src/tables.cpp", "function:src/tables.cpp:init_tables", "function:include/tables.h:evaluate_board"]
     },
     {
       "order": 4,
-      "title": "Expectimax AI 引擎",
-      "description": "AI 的核心算法。AIEngine 实现 Expectimax 博弈树搜索：CHANCE 节点计算随机方块放置的期望值，MAX 节点选择最优移动方向。三重优化：自适应深度（空格少时搜更深）、Transposition Table（避免重复计算）、概率裁剪（低概率路径提前终止）。",
-      "nodeIds": ["file:include/ai.h", "file:src/ai.cpp"],
-      "languageLesson": "Expectimax 是处理随机性的标准博弈搜索算法，与 Minimax 的区别在于用期望值替代最小值节点。unordered_map<uint64_t, CacheEntry> 实现的 Transposition Table 是搜索优化的经典范式。"
+      "title": "Expectimax AI 搜索",
+      "description": "AI 通过 MAX-CHANCE 交替搜索博弈树：MAX 节点选最优方向，CHANCE 节点计算随机放置的期望值。概率裁剪和缓存使其在移动端也能实时决策。",
+      "nodeIds": ["class:include/ai.h:AIEngine", "function:src/ai.cpp:find_best_move", "function:src/ai.cpp:score_chance_node", "function:src/ai.cpp:score_move_node"]
     },
     {
       "order": 5,
-      "title": "测试与基准评估",
-      "description": "main.cpp 组织了完整的验证和评估流程：先运行三组单元测试确保查找表和棋盘操作正确，再让 AI 自动对弈多局，统计分数分布和 tile 达成率。play_one_game 展示了完整的游戏循环。",
-      "nodeIds": ["file:src/main.cpp"]
+      "title": "SDL2 渲染与动画系统",
+      "description": "Renderer 负责所有视觉输出。动画分三阶段（滑动→合并→生成），使用 ease-out-cubic 和 ease-out-back 缓动函数实现丝滑效果。",
+      "nodeIds": ["class:include/renderer.h:Renderer", "file:src/renderer.cpp", "function:src/renderer.cpp:Renderer::start_move_anim"]
     },
     {
       "order": 6,
-      "title": "构建与开发环境",
-      "description": "CMake 配置使用 MSYS2 UCRT64 工具链，C++17 标准，Release 模式 -O3 优化和静态链接。VS Code 配置了完整的构建任务链和 GDB 调试支持。",
-      "nodeIds": ["config:CMakeLists.txt", "config:.vscode/settings.json", "config:.vscode/tasks.json"]
+      "title": "游戏循环与输入处理",
+      "description": "Game::tick() 是单帧逻辑核心：处理事件→更新动画→AI 步进→渲染。支持键盘、触控手势和 UI 按钮三种输入方式。",
+      "nodeIds": ["function:src/game.cpp:Game::tick", "function:src/game.cpp:Game::do_move", "file:src/game.cpp"]
+    },
+    {
+      "order": 7,
+      "title": "WebAssembly 部署",
+      "description": "通过 Emscripten 将 C++ 编译为 WASM，CMakeLists.txt 条件编译支持双目标，shell.html 提供移动端优化的 Web 容器。",
+      "nodeIds": ["config:CMakeLists.txt", "file:web/shell.html", "document:docs/移动端Web版方案.md"]
     }
   ]
 }
