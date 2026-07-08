@@ -1,0 +1,3 @@
+C:\msys64\ucrt64\bin\cmake.exe -E rm -f CMakeFiles\game2048.dir/objects.a
+C:\msys64\ucrt64\bin\ar.exe qc CMakeFiles\game2048.dir/objects.a @CMakeFiles\game2048.dir\objects1.rsp
+C:\msys64\ucrt64\bin\c++.exe -O3 -DNDEBUG -Wl,--whole-archive CMakeFiles\game2048.dir/objects.a -Wl,--no-whole-archive -o game2048.exe -Wl,--out-implib,libgame2048.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\game2048.dir\linkLibs.rsp

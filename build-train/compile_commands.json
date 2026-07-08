@@ -1,0 +1,32 @@
+[
+{
+  "directory": "C:/Users/zhengyang.xu/Desktop/WorkDoc/Study/Study-2026/2048-cpp/build-train",
+  "command": "C:\\msys64\\ucrt64\\bin\\c++.exe -DBUILD_TRAINER_ONLY @CMakeFiles/game2048.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -O2 -o CMakeFiles\\game2048.dir\\src\\main.cpp.obj -c C:\\Users\\zhengyang.xu\\Desktop\\WorkDoc\\Study\\Study-2026\\2048-cpp\\src\\main.cpp",
+  "file": "C:/Users/zhengyang.xu/Desktop/WorkDoc/Study/Study-2026/2048-cpp/src/main.cpp",
+  "output": "CMakeFiles/game2048.dir/src/main.cpp.obj"
+},
+{
+  "directory": "C:/Users/zhengyang.xu/Desktop/WorkDoc/Study/Study-2026/2048-cpp/build-train",
+  "command": "C:\\msys64\\ucrt64\\bin\\c++.exe -DBUILD_TRAINER_ONLY @CMakeFiles/game2048.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -O2 -o CMakeFiles\\game2048.dir\\src\\tables.cpp.obj -c C:\\Users\\zhengyang.xu\\Desktop\\WorkDoc\\Study\\Study-2026\\2048-cpp\\src\\tables.cpp",
+  "file": "C:/Users/zhengyang.xu/Desktop/WorkDoc/Study/Study-2026/2048-cpp/src/tables.cpp",
+  "output": "CMakeFiles/game2048.dir/src/tables.cpp.obj"
+},
+{
+  "directory": "C:/Users/zhengyang.xu/Desktop/WorkDoc/Study/Study-2026/2048-cpp/build-train",
+  "command": "C:\\msys64\\ucrt64\\bin\\c++.exe -DBUILD_TRAINER_ONLY @CMakeFiles/game2048.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -O2 -o CMakeFiles\\game2048.dir\\src\\ai.cpp.obj -c C:\\Users\\zhengyang.xu\\Desktop\\WorkDoc\\Study\\Study-2026\\2048-cpp\\src\\ai.cpp",
+  "file": "C:/Users/zhengyang.xu/Desktop/WorkDoc/Study/Study-2026/2048-cpp/src/ai.cpp",
+  "output": "CMakeFiles/game2048.dir/src/ai.cpp.obj"
+},
+{
+  "directory": "C:/Users/zhengyang.xu/Desktop/WorkDoc/Study/Study-2026/2048-cpp/build-train",
+  "command": "C:\\msys64\\ucrt64\\bin\\c++.exe -DBUILD_TRAINER_ONLY @CMakeFiles/game2048.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -O2 -o CMakeFiles\\game2048.dir\\src\\tuple_network.cpp.obj -c C:\\Users\\zhengyang.xu\\Desktop\\WorkDoc\\Study\\Study-2026\\2048-cpp\\src\\tuple_network.cpp",
+  "file": "C:/Users/zhengyang.xu/Desktop/WorkDoc/Study/Study-2026/2048-cpp/src/tuple_network.cpp",
+  "output": "CMakeFiles/game2048.dir/src/tuple_network.cpp.obj"
+},
+{
+  "directory": "C:/Users/zhengyang.xu/Desktop/WorkDoc/Study/Study-2026/2048-cpp/build-train",
+  "command": "C:\\msys64\\ucrt64\\bin\\c++.exe -DBUILD_TRAINER_ONLY @CMakeFiles/game2048.dir/includes_CXX.rsp -O3 -DNDEBUG -std=gnu++17 -O2 -o CMakeFiles\\game2048.dir\\src\\trainer.cpp.obj -c C:\\Users\\zhengyang.xu\\Desktop\\WorkDoc\\Study\\Study-2026\\2048-cpp\\src\\trainer.cpp",
+  "file": "C:/Users/zhengyang.xu/Desktop/WorkDoc/Study/Study-2026/2048-cpp/src/trainer.cpp",
+  "output": "CMakeFiles/game2048.dir/src/trainer.cpp.obj"
+}
+]

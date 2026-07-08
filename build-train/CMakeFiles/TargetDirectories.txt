@@ -1,0 +1,3 @@
+C:/Users/zhengyang.xu/Desktop/WorkDoc/Study/Study-2026/2048-cpp/build-train/CMakeFiles/game2048.dir
+C:/Users/zhengyang.xu/Desktop/WorkDoc/Study/Study-2026/2048-cpp/build-train/CMakeFiles/edit_cache.dir
+C:/Users/zhengyang.xu/Desktop/WorkDoc/Study/Study-2026/2048-cpp/build-train/CMakeFiles/rebuild_cache.dir
